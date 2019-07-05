@@ -112,8 +112,24 @@ func performMetaCommand(cmd string) MetaCommandResult {
 func prepareStatement(cmd string, statement *Statement) PrepareResult {
     if (strings.LastIndex(cmd, "insert") == 0) {
 	statement.statementType = StatementTypeInsert
+	rowToInsert := statement.rowToInsert
+	
+	var id uint32
+	var username, email string
+
+	argsAssigned, err := fmt.Sscanf(cmd, "insert %d %s %s", &id, &username, &email)
+	if argsAssigned < 3 || err != nil {
+	    fmt.Println(err)
+	    return PrepareSyntaxError
+	}
+
+	rowToInsert.id = id
+	copy(rowToInsert.username[:], []rune(username))
+	copy(rowToInsert.email[:], []rune(email))
+
 	return PrepareSuccess
     }
+
     if (strings.LastIndex(cmd, "select") == 0) {
 	statement.statementType = StatementTypeSelect
 	return PrepareSuccess
@@ -136,7 +152,7 @@ func executeStatement(statement *Statement) {
 func main() {
     scanner := bufio.NewScanner(os.Stdin)
     table := newTable()
-    // fmt.Printf("%v\n", table)
+    fmt.Printf("%q\n", table)
     for {
 	displayPrompt()
 	scanner.Scan()
@@ -157,10 +173,13 @@ func main() {
 	    }
 	}
 
-	statement := Statement{}
+	statement := Statement{ rowToInsert: new(Row)}
 	switch prepareStatement(cmd, &statement) {
 	case PrepareSuccess:
 	    break
+	case PrepareSyntaxError:
+	    fmt.Println("Syntax error. Could not parse statement")
+	    continue
 	case PrepareUnrecognizedStatement:
 	    fmt.Printf("Unrecognized keyword at start of '%s'\n", cmd)
 	    continue
