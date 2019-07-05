@@ -6,6 +6,7 @@ import (
     "log"
     "os"
     "strings"
+    "unsafe"
 )
 
 const (
@@ -22,6 +23,7 @@ const (
 type PrepareResult int
 const (
     PrepareSuccess PrepareResult = iota
+    PrepareSyntaxError
     PrepareUnrecognizedStatement
 )
 
@@ -31,9 +33,70 @@ const (
     StatementTypeSelect
 )
 
+
+type ExecuteResult int
+const (
+    ExecuteSuccess ExecuteResult = iota
+    ExecuteTableFull
+)
+
+const (
+    ColumnUsernameSize int = 32
+    ColumnEmailSize int = 255
+)
+
+type Row struct {
+    id uint32
+    username [ColumnUsernameSize]rune
+    email [ColumnEmailSize]rune
+}
+var row Row
+
+const (
+    SizeId uintptr = unsafe.Sizeof(row.id)
+    SizeUsername uintptr = unsafe.Sizeof(row.username)
+    SizeEmail uintptr = unsafe.Sizeof(row.email)
+    SizeRow uintptr = SizeId + SizeUsername + SizeEmail
+    IdOffset uintptr = 0
+    UsernameOffset uintptr = IdOffset + SizeUsername
+    EmailOffset uintptr = SizeUsername + SizeEmail
+)
+
+
 type Statement struct {
     statementType StatementType
+    rowToInsert *Row
 }
+
+const (
+    SizePage uintptr = 4096
+    TableMaxPages uintptr = 100
+    RowsPerPage = SizePage / SizeRow
+    TableMaxRows = RowsPerPage * TableMaxPages
+)
+
+type Table struct {
+    numRows uint32
+    pages [TableMaxPages]interface{}
+}
+
+func newTable() *Table {
+    table := &Table{numRows: 0}
+    var i uintptr = 0
+    for ;i<TableMaxPages; i++ {
+	table.pages[i] = nil
+    }
+    return table
+}
+
+//func rowSlot(table *Table, uintptr rowNum) uintptr {
+//    pageNum := rowNum / RowsPerPage
+//    page := table.pages[pageNum]
+//
+//    if page == nil {
+//	page = 
+//    }
+//}
 
 func displayPrompt() {
     fmt.Print("sqllight > ")
@@ -72,11 +135,13 @@ func executeStatement(statement *Statement) {
 
 func main() {
     scanner := bufio.NewScanner(os.Stdin)
+    table := newTable()
+    // fmt.Printf("%v\n", table)
     for {
 	displayPrompt()
 	scanner.Scan()
 	cmd := scanner.Text()
-	
+
 	// ignore empty buffer
 	if cmd == "" {
 	    continue
