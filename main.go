@@ -48,8 +48,9 @@ func performMetaCommand(cmd string) MetaCommandResult {
 
 func main() {
     scanner := bufio.NewScanner(os.Stdin)
-    displayPrompt()
-    for scanner.Scan() {
+    for {
+	displayPrompt()
+	scanner.Scan()
 	cmd := scanner.Text()
 	if strings.LastIndex(cmd, ".") == 0 {
 	    switch performMetaCommand(cmd) {
@@ -60,7 +61,6 @@ func main() {
 		break
 	    }
 	}
-	displayPrompt()
     }
 
     if scanner.Err() != nil {
