@@ -76,6 +76,11 @@ func main() {
 	displayPrompt()
 	scanner.Scan()
 	cmd := scanner.Text()
+	
+	// ignore empty buffer
+	if cmd == "" {
+	    continue
+	}
 
 	if strings.LastIndex(cmd, ".") == 0 {
 	    switch performMetaCommand(cmd) {
@@ -83,7 +88,7 @@ func main() {
 		break
 	    case MetaCommandUnrecognizedCommand:
 		fmt.Println("Unknown command: ", cmd)
-		break
+		continue
 	    }
 	}
 
