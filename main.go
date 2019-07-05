@@ -46,12 +46,37 @@ func performMetaCommand(cmd string) MetaCommandResult {
     return MetaCommandUnrecognizedCommand
 }
 
+func prepareStatement(cmd string, statement *Statement) PrepareResult {
+    if (strings.LastIndex(cmd, "insert") == 0) {
+	statement.statementType = StatementTypeInsert
+	return PrepareSuccess
+    }
+    if (strings.LastIndex(cmd, "select") == 0) {
+	statement.statementType = StatementTypeSelect
+	return PrepareSuccess
+    }
+
+    return PrepareUnrecognizedStatement
+}
+
+func executeStatement(statement *Statement) {
+    switch statement.statementType {
+    case StatementTypeInsert:
+	fmt.Println("INSERT OP")
+	break
+    case StatementTypeSelect:
+	fmt.Println("SELECT OP")
+	break
+    }
+}
+
 func main() {
     scanner := bufio.NewScanner(os.Stdin)
     for {
 	displayPrompt()
 	scanner.Scan()
 	cmd := scanner.Text()
+
 	if strings.LastIndex(cmd, ".") == 0 {
 	    switch performMetaCommand(cmd) {
 	    case MetaCommandSuccess:
@@ -61,6 +86,17 @@ func main() {
 		break
 	    }
 	}
+
+	statement := Statement{}
+	switch prepareStatement(cmd, &statement) {
+	case PrepareSuccess:
+	    break
+	case PrepareUnrecognizedStatement:
+	    fmt.Printf("Unrecognized keyword at start of '%s'\n", cmd)
+	    continue
+	}
+
+	executeStatement(&statement)
     }
 
     if scanner.Err() != nil {
