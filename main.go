@@ -6,7 +6,6 @@ import (
     "log"
     "os"
     "strings"
-    "unsafe"
 )
 
 const (
@@ -15,12 +14,14 @@ const (
 )
 
 type MetaCommandResult int
+
 const (
     MetaCommandSuccess MetaCommandResult = iota
     MetaCommandUnrecognizedCommand
 )
 
 type PrepareResult int
+
 const (
     PrepareSuccess PrepareResult = iota
     PrepareSyntaxError
@@ -28,13 +29,14 @@ const (
 )
 
 type StatementType int
+
 const (
     StatementTypeInsert StatementType = iota
     StatementTypeSelect
 )
 
-
 type ExecuteResult int
+
 const (
     ExecuteSuccess ExecuteResult = iota
     ExecuteTableFull
@@ -42,61 +44,50 @@ const (
 
 const (
     ColumnUsernameSize int = 32
-    ColumnEmailSize int = 255
+    ColumnEmailSize    int = 255
 )
 
 type Row struct {
-    id uint32
+    id       uint32
     username [ColumnUsernameSize]rune
-    email [ColumnEmailSize]rune
+    email    [ColumnEmailSize]rune
 }
-var row Row
-
-const (
-    SizeId uintptr = unsafe.Sizeof(row.id)
-    SizeUsername uintptr = unsafe.Sizeof(row.username)
-    SizeEmail uintptr = unsafe.Sizeof(row.email)
-    SizeRow uintptr = SizeId + SizeUsername + SizeEmail
-    IdOffset uintptr = 0
-    UsernameOffset uintptr = IdOffset + SizeUsername
-    EmailOffset uintptr = SizeUsername + SizeEmail
-)
-
 
 type Statement struct {
     statementType StatementType
-    rowToInsert *Row
+    rowToInsert   *Row
 }
 
 const (
-    SizePage uintptr = 4096
-    TableMaxPages uintptr = 100
-    RowsPerPage = SizePage / SizeRow
-    TableMaxRows = RowsPerPage * TableMaxPages
+    TableMaxPages = 100
+    RowsPerPage = 200
 )
+
+type Page struct {
+    rows [RowsPerPage]*Row
+}
 
 type Table struct {
     numRows uint32
-    pages [TableMaxPages]interface{}
+    pages   [TableMaxPages]*Page
 }
 
 func newTable() *Table {
     table := &Table{numRows: 0}
-    var i uintptr = 0
-    for ;i<TableMaxPages; i++ {
+    for i := 0; i < TableMaxPages; i++ {
 	table.pages[i] = nil
     }
     return table
 }
 
-//func rowSlot(table *Table, uintptr rowNum) uintptr {
-//    pageNum := rowNum / RowsPerPage
-//    page := table.pages[pageNum]
-//
-//    if page == nil {
-//	page = 
-//    }
-//}
+func rowSlot(table *Table, rowNum uint32) {
+    pageNum := rowNum / RowsPerPage
+    page := table.pages[pageNum]
+
+    if page == nil {
+	page = new(Page)
+    }
+}
 
 func displayPrompt() {
     fmt.Print("sqllight > ")
@@ -110,10 +101,10 @@ func performMetaCommand(cmd string) MetaCommandResult {
 }
 
 func prepareStatement(cmd string, statement *Statement) PrepareResult {
-    if (strings.LastIndex(cmd, "insert") == 0) {
+    if strings.LastIndex(cmd, "insert") == 0 {
 	statement.statementType = StatementTypeInsert
 	rowToInsert := statement.rowToInsert
-	
+
 	var id uint32
 	var username, email string
 
@@ -130,7 +121,7 @@ func prepareStatement(cmd string, statement *Statement) PrepareResult {
 	return PrepareSuccess
     }
 
-    if (strings.LastIndex(cmd, "select") == 0) {
+    if strings.LastIndex(cmd, "select") == 0 {
 	statement.statementType = StatementTypeSelect
 	return PrepareSuccess
     }
@@ -173,7 +164,7 @@ func main() {
 	    }
 	}
 
-	statement := Statement{ rowToInsert: new(Row)}
+	statement := Statement{rowToInsert: new(Row)}
 	switch prepareStatement(cmd, &statement) {
 	case PrepareSuccess:
 	    break
