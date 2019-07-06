@@ -61,6 +61,7 @@ type Statement struct {
 const (
     TableMaxPages = 100
     RowsPerPage = 200
+    TableMaxRows = TableMaxPages * RowsPerPage
 )
 
 type Page struct {
@@ -80,14 +81,68 @@ func newTable() *Table {
     return table
 }
 
-func rowSlot(table *Table, rowNum uint32) {
+func rowSlot(table *Table, row *Row) {
+    rowNum := table.numRows
     pageNum := rowNum / RowsPerPage
     page := table.pages[pageNum]
 
     if page == nil {
-	page = new(Page)
+	var nRows [RowsPerPage]*Row
+	rows := make([]*Row, RowsPerPage)
+	copy(nRows[:], rows)
+	table.pages[pageNum] = &Page{nRows}
+	page = table.pages[pageNum]
     }
+
+    index := rowNum % RowsPerPage
+    page.rows[index] = row
 }
+
+func executeInsert(statement *Statement, table *Table) ExecuteResult {
+    if table.numRows >= TableMaxRows {
+	return ExecuteTableFull
+    }
+
+    rowToInsert := statement.rowToInsert
+    rowSlot(table, rowToInsert)
+    table.numRows++
+    return ExecuteSuccess
+}
+
+func executeSelect(statement *Statement, table *Table) ExecuteResult {
+    var i uint32
+    numPages := table.numRows/RowsPerPage
+    excessRows := int(table.numRows % RowsPerPage)
+
+    if excessRows > 0 {
+	numPages++
+    }
+
+    for i=0; i<numPages; i++ {
+	n := RowsPerPage
+	rows := table.pages[i].rows
+	if i == numPages - 1 {
+	    n = excessRows
+	}
+
+	for j:=0; j<n; j++ {
+	    row := rows[j]
+	    fmt.Printf("User: %d %s %s\n", row.id, string(row.username[:]),  string(row.email[:]))
+	}
+    }
+    return ExecuteSuccess
+}
+
+func executeStatement(statement *Statement, table *Table) ExecuteResult {
+    switch statement.statementType {
+    case StatementTypeInsert:
+	return executeInsert(statement, table)
+    case StatementTypeSelect:
+	return executeSelect(statement, table)
+    }
+    return ExecuteSuccess
+}
+
 
 func displayPrompt() {
     fmt.Print("sqllight > ")
@@ -129,21 +184,10 @@ func prepareStatement(cmd string, statement *Statement) PrepareResult {
     return PrepareUnrecognizedStatement
 }
 
-func executeStatement(statement *Statement) {
-    switch statement.statementType {
-    case StatementTypeInsert:
-	fmt.Println("INSERT OP")
-	break
-    case StatementTypeSelect:
-	fmt.Println("SELECT OP")
-	break
-    }
-}
-
 func main() {
     scanner := bufio.NewScanner(os.Stdin)
     table := newTable()
-    fmt.Printf("%q\n", table)
+    // fmt.Printf("%q\n", table)
     for {
 	displayPrompt()
 	scanner.Scan()
@@ -176,7 +220,14 @@ func main() {
 	    continue
 	}
 
-	executeStatement(&statement)
+	switch executeStatement(&statement, table) {
+	case ExecuteSuccess:
+	    fmt.Println("Executed")
+	    break
+	case ExecuteTableFull:
+	    fmt.Println("Error: Table full")
+	    break
+	}
     }
 
     if scanner.Err() != nil {
