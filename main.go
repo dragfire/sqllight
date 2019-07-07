@@ -25,6 +25,7 @@ type PrepareResult int
 const (
     PrepareSuccess PrepareResult = iota
     PrepareSyntaxError
+    PrepareNegativeId
     PrepareUnrecognizedStatement
 )
 
@@ -59,8 +60,8 @@ type Statement struct {
 }
 
 const (
-    TableMaxPages = 100
-    RowsPerPage = 200
+    TableMaxPages = 10
+    RowsPerPage = 100
     TableMaxRows = TableMaxPages * RowsPerPage
 )
 

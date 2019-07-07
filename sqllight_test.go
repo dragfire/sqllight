@@ -1,6 +1,7 @@
 package main
 
 import (
+    "fmt"
     "log"
     "strings"
     "testing"
@@ -22,7 +23,7 @@ func equal(got, want []string) bool {
 }
 
 func runDB(cmds []string) []string  {
-    cmd := exec.Command("./sqllight")
+    cmd := exec.Command("go", "run", "main.go")
 
     stdin, err := cmd.StdinPipe()
     fatalErrCheck(err)
@@ -45,6 +46,22 @@ func TestSqllight(t *testing.T) {
 	want := []string{"sqllight > Executed", "sqllight > User: 1 a b", "Executed", "sqllight > "}
 
 	if !equal(got, want) {
+	    t.Errorf("got: %v, want: %v", got, want)
+	}
+    })
+    
+    t.Run("error when table is full", func(t *testing.T) {
+	cmds := []string{}
+	for i:=0; i<1010; i++ {
+	    cmds = append(cmds, fmt.Sprintf("insert %d a b", i))
+	}
+	cmds = append(cmds, ".exit")
+	res := runDB(cmds)
+
+	got := res[len(res) - 2]
+	want := "sqllight > Error: Table full"
+	
+	if got != want {
 	    t.Errorf("got: %v, want: %v", got, want)
 	}
     })
