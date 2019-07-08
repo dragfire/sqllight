@@ -48,6 +48,12 @@ const (
     ColumnEmailSize    int = 255
 )
 
+const (
+    TableMaxPages = 10
+    RowsPerPage = 100
+    TableMaxRows = TableMaxPages * RowsPerPage
+)
+
 type Row struct {
     id       uint32
     username [ColumnUsernameSize]rune
@@ -59,33 +65,29 @@ type Statement struct {
     rowToInsert   *Row
 }
 
-const (
-    TableMaxPages = 10
-    RowsPerPage = 100
-    TableMaxRows = TableMaxPages * RowsPerPage
-)
-
 type Page struct {
     rows [RowsPerPage]*Row
 }
 
-type Table struct {
-    numRows uint32
-    pages   [TableMaxPages]*Page
+func newPage() *Page {
 }
 
-func newTable() *Table {
-    table := &Table{numRows: 0}
-    for i := 0; i < TableMaxPages; i++ {
-	table.pages[i] = nil
-    }
+type Table struct {
+    numRows uint32
+    pager *FilePager
+}
+
+func dbOpen(filename string) *Table {
+    pager := pagerOpen(filename)
+    table := &Table{numRows: 0, pager: pager}
+
     return table
 }
 
 func rowSlot(table *Table, row *Row) {
     rowNum := table.numRows
     pageNum := rowNum / RowsPerPage
-    page := table.pages[pageNum]
+    page := getPage(table.pager, pageNum)
 
     if page == nil {
 	var nRows [RowsPerPage]*Row
@@ -187,7 +189,7 @@ func prepareStatement(cmd string, statement *Statement) PrepareResult {
 
 func main() {
     scanner := bufio.NewScanner(os.Stdin)
-    table := newTable()
+    table := dbOpen("test.db")
     // fmt.Printf("%q\n", table)
     for {
 	displayPrompt()
